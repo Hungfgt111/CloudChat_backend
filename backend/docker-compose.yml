@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  # CSDL PostgreSQL Chinh tren VPS (Active)
+  postgres-primary:
+    image: postgres:16-alpine
+    container_name: cloudchat_postgres_primary
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: cloudchat_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_primary:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/init.sql
+    deploy:
+      resources:
+        limits:
+          memory: 400M # Gioi han toi da 400MB RAM chong tran bo nho
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cloudchat_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Backend Node.js Active Cluster
+  backend-active:
+    build: .
+    container_name: cloudchat_backend_active
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      NODE_ENV: production
+      SERVER_ROLE: ACTIVE
+      PORT: 5000
+      DATABASE_URL: postgresql://postgres:password123@postgres-primary:5432/cloudchat_db
+      JWT_SECRET: cloudchat_dr_jwt_secret_key_2026_super_secure
+      SUPABASE_URL: https://niwcxukzzngjbxasytdn.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: sb_secret_t5fgAiWEVIfvD3MkeiG89g_xuquxLe4
+      MAX_FILE_SIZE_MB: 25
+      UPLOAD_DIR: ./uploads
+    deploy:
+      resources:
+        limits:
+          memory: 300M # Gioi han toi da 300MB RAM cho Backend
+    volumes:
+      - uploads_data:/usr/src/app/uploads
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+
+volumes:
+  pgdata_primary:
+  uploads_data:
